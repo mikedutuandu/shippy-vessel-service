@@ -1,58 +1,43 @@
 package main
 
 import (
+	"context"
 	"fmt"
-	"log"
-
-	"os"
-
 	pb "github.com/mikedutuandu/shippy-vessel-service/proto/vessel"
 	"github.com/micro/go-micro"
-	k8s "github.com/micro/kubernetes/go/micro"
+	"log"
+	"os"
 )
 
 const (
-	defaultHost = "localhost:27017"
+	defaultHost = "datastore:27017"
 )
 
-func createDummyData(repo Repository) {
-	defer repo.Close()
-	vessels := []*pb.Vessel{
-		{Id: "vessel001", Name: "Kane's Salty Secret", MaxWeight: 200000, Capacity: 500},
-	}
-	for _, v := range vessels {
-		repo.Create(v)
-	}
-}
-
 func main() {
-
-	host := os.Getenv("DB_HOST")
-
-	if host == "" {
-		host = defaultHost
-	}
-
-	session, err := CreateSession(host)
-	defer session.Close()
-
-	if err != nil {
-		log.Fatalf("Error connecting to datastore %s: %v", host, err)
-	}
-
-	repo := &VesselRepository{session.Copy()}
-
-	createDummyData(repo)
-
-	srv := k8s.NewService(
-		micro.Name("shippy.vessel"),
-		micro.Version("latest"),
+	srv := micro.NewService(
+		micro.Name("shippy.vessel.service"),
 	)
 
 	srv.Init()
 
+	uri := os.Getenv("DB_HOST")
+	if uri == "" {
+		uri = defaultHost
+	}
+	client, err := CreateClient(uri)
+	if err != nil {
+		log.Panic(err)
+	}
+	defer client.Disconnect(context.TODO())
+
+	vesselCollection := client.Database("shippy").Collection("vessel")
+	repository := &VesselRepository{
+		vesselCollection,
+	}
+
+
 	// Register our implementation with
-	pb.RegisterVesselServiceHandler(srv.Server(), &service{session})
+	pb.RegisterVesselServiceHandler(srv.Server(), &handler{repository})
 
 	if err := srv.Run(); err != nil {
 		fmt.Println(err)
