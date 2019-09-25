@@ -10,15 +10,15 @@ import (
 )
 
 const (
-	defaultHost = "datastore:27017"
+	defaultHost = "mongodb+srv://admin:AAC0w4Q6jvNv4r8Z@bookingcluster-tgpah.gcp.mongodb.net/test?retryWrites=true&w=majority"
 )
 
 func main() {
-	srv := micro.NewService(
+	service := micro.NewService(
 		micro.Name("shippy.vessel.service"),
 	)
 
-	srv.Init()
+	service.Init()
 
 	uri := os.Getenv("DB_HOST")
 	if uri == "" {
@@ -37,9 +37,9 @@ func main() {
 
 
 	// Register our implementation with
-	pb.RegisterVesselServiceHandler(srv.Server(), &handler{repository})
+	pb.RegisterVesselServiceHandler(service.Server(), &handler{repository})
 
-	if err := srv.Run(); err != nil {
+	if err := service.Run(); err != nil {
 		fmt.Println(err)
 	}
 }
